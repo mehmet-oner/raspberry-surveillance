@@ -1,5 +1,5 @@
-from pyimagesearch.motion_detection import SingleMotionDetector
 from pyimagesearch.keyclipwriter import KeyClipWriter
+from pyimagesearch.singlemotiondetector import SingleMotionDetector
 from imutils.video import VideoStream
 from flask import Response
 from flask import Flask
@@ -19,7 +19,6 @@ logging.basicConfig(
 
 fps = 15
 outputFrame = None
-outputDirectory = "/home/pi/stream-video-browser/output"
 # 5 seconds recording before and after the motion
 beforeAndAfterFrames = fps * 5
 
@@ -38,7 +37,7 @@ def index():
     return render_template("index.html")
 
 
-def detect_motion():
+def detect_motion(outputDirectory):
     global vs, outputFrame, lock
 
     frameCount = 32
@@ -156,10 +155,12 @@ if __name__ == '__main__':
                     help="ip address of the device")
     ap.add_argument("-o", "--port", type=int, required=True,
                     help="ephemeral port number of the server (1024 to 65535)")
+    ap.add_argument("-dir", "--dir", type=str, required=True,
+                    help="directory to store the clips")
     args = vars(ap.parse_args())
 
     # start a thread that will perform motion detection
-    t = threading.Thread(target=detect_motion)
+    t = threading.Thread(target=detect_motion, args=(args["dir"],))
     t.daemon = True
     t.start()
 
