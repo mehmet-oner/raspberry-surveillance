@@ -12,6 +12,7 @@ import imutils
 import time
 import cv2
 import logging
+from alarmhandler import AlarmHandler
 
 # Configure logger
 logging.basicConfig(
@@ -46,6 +47,7 @@ def detect_motion(outputDirectory):
 
     recordedFrameCount = 0
     kcw = KeyClipWriter(bufSize=beforeAndAfterFrames)
+    lastFileName = None
 
     while True:
         # read the next frame from the video stream, resize it,
@@ -80,9 +82,10 @@ def detect_motion(outputDirectory):
                 if kcw.recording is False:
                     recordedFrameCount = 0
                     timestamp = datetime.datetime.now()
-                    p = "{}/{}.avi".format(outputDirectory,
-                                           timestamp.strftime("%Y%m%d-%H%M%S"))
-                    kcw.start(p, cv2.VideoWriter_fourcc(*"MJPG"), fps)
+                    lastFileName = "{}/{}.mp4".format(outputDirectory,
+                                                      timestamp.strftime("%Y%m%d-%H%M%S"))
+                    kcw.start(lastFileName,
+                              cv2.VideoWriter_fourcc(*"MP4V"), fps)
                     logging.info("Started recording")
 
             if kcw.recording is True:
@@ -91,6 +94,8 @@ def detect_motion(outputDirectory):
                 if recordedFrameCount > beforeAndAfterFrames:
                     logging.info("Stopped recording")
                     kcw.finish()
+                    if lastFileName is not None:
+                        ah.sendEvent(lastFileName)
 
         # update the background model and increment the total number
         # of frames read thus far
@@ -157,10 +162,21 @@ if __name__ == '__main__':
                     help="ephemeral port number of the server (1024 to 65535)")
     ap.add_argument("-dir", "--dir", type=str, required=True,
                     help="directory to store the clips")
+    ap.add_argument("-username", "--username", type=str, required=True,
+                    help="Smtp username")
+    ap.add_argument("-password", "--password", type=str, required=True,
+                    help="Smtp password")
+    ap.add_argument("-email", "--email", type=str, required=True,
+                    help="Email to send")
+
     args = vars(ap.parse_args())
 
+    ah = AlarmHandler(bufSize=10, timeout=5.0)
+    ah.start(args["username"], args["password"], args["email"])
+
     # start a thread that will perform motion detection
-    t = threading.Thread(target=detect_motion, args=(args["dir"],))
+    t = threading.Thread(target=detect_motion, args=(
+        args["dir"],))
     t.daemon = True
     t.start()
 
@@ -170,3 +186,4 @@ if __name__ == '__main__':
 
 # release the video stream pointer
 vs.stop()
+ah.finish()

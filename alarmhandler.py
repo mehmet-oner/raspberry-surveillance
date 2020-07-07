@@ -13,29 +13,37 @@ logging.basicConfig(
 
 class AlarmHandler:
 
-    def __init__(self, bufSize=10, timeout=1.0, username, password, emailToSend):
+    def __init__(self, bufSize=10, timeout=5.0):
         self.timeout = timeout
         self.Q = Queue(maxsize=bufSize)
         self.thread = None
         self.started = False
 
     def sendEvent(self, event):
+        logging.info("Event received " + event)
         self.Q.put(event)
 
-    def start(self):
+    def start(self, username, password, emailToSend):
         self.thread = Thread(target=self.eventListener, args=())
         self.thread.daemon = True
         self.thread.start()
+        self.username = username
+        self.password = password
+        self.emailToSend = emailToSend
         self.started = True
-        logging.info("AlarmHandler started")
 
     def eventListener(self):
+        logging.info("AlarmHandler started")
+
         while True:
+            logging.info("Mail server waiting....")
             if not self.started:
                 return
 
             if not self.Q.empty():
                 event = self.Q.get()
+                logging.info("Started sending email to " +
+                             self.emailToSend + " with event " + event)
                 self.sendMail(event)
             else:
                 time.sleep(self.timeout)
@@ -52,8 +60,8 @@ class AlarmHandler:
         logging.info("AlarmHandler ended")
 
     def sendMail(self, videofile=""):
-        with yagmail.SMTP(username, password) as yag:
+        with yagmail.SMTP(self.username, self.password) as yag:
             timestamp = datetime.datetime.now()
-            yag.send(to=emailToSend, subject='Motion detected!', contents='Motion detected at {}'.format(
+            yag.send(to=self.emailToSend, subject='Motion detected!', contents='Motion detected at {}'.format(
                 timestamp.strftime("%A %d %B %Y %I:%M:%S%p")), attachments=[videofile])
             logging.info('Email sent.')
